@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación Interactiva - Geografía del Perú | I.E. Santísima Niña María</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        amberCustom: {
+                            50: '#fffbeed6', 100: '#fef3c7', 500: '#f59e0b', 600: '#d97706',
+                            700: '#b45309', 800: '#92400e', 900: '#78350f', 950: '#451a03',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Tone.js para efectos de sonido -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .matching-item { cursor: pointer; transition: all 0.2s ease; }
+        .matching-item.selected { border-color: #ea580c !important; background-color: #ffedd5 !important; box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.4); }
+        .matching-item.matched { opacity: 0.6; pointer-events: none; background-color: #f3f4f6 !important; border-color: #10b981 !important; }
+
+        .order-item { transition: transform 0.2s; }
+        .order-item:hover { transform: scale(1.01); }
+
+        #custom-notification { transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(-20px); opacity: 0; pointer-events: none; }
+        #custom-notification.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-amber-950 via-orange-900 to-stone-900 min-h-screen text-gray-800 flex items-center justify-center p-3 md:p-6">
+
+    <!-- Notificación Flotante -->
+    <div id="custom-notification" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 bg-amber-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3 border-2 border-amber-300">
+        <span id="notification-msg">Aviso</span>
+        <button onclick="hideNotification()" class="ml-4 text-white">✕</button>
+    </div>
+
+    <!-- Contenedor Principal -->
+    <div class="max-w-4xl w-full bg-orange-50/95 backdrop-blur-md rounded-3xl shadow-2xl border-4 border-amber-700/30 overflow-hidden fade-in my-4">
+        
+        <header class="bg-gradient-to-r from-amber-900 via-orange-800 to-amber-900 text-white p-6 text-center shadow-lg">
+            <div class="inline-block bg-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider mb-2">
+                I.E. Santísima Niña María
+            </div>
+            <h1 class="text-2xl md:text-3xl font-black tracking-tight drop-shadow">EVALUACIÓN DE CIENCIAS SOCIALES</h1>
+            <p class="text-amber-200 font-medium text-base md:text-lg mt-1">Geografía del Perú — Evaluación Interactiva</p>
+        </header>
+
+        <!-- PANTALLA DE REGISTRO -->
+        <div id="screen-register" class="p-6 md:p-10">
+            <div class="max-w-lg mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-md border border-amber-200">
+                <h2 class="text-2xl font-black text-center mb-1 text-amber-900">¡Bienvenidas, queridas estudiantes!</h2>
+                <p class="text-center text-sm text-amber-700 mb-6">Selecciona tu grado y sección para comenzar tu evaluación sobre Geografía del Perú.</p>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-bold text-amber-900 mb-2">GRADO</label>
+                        <select id="sel-grado" onchange="resetListaAlumnas()" class="w-full p-3 border-2 border-amber-200 rounded-xl font-semibold outline-none bg-amber-50/50">
+                            <option value="">Elegir grado</option>
+                            <option value="1">1.º año</option>
+                            <option value="2">2.º año</option>
+                            <option value="3">3.º año</option>
+                            <option value="4">4.º año</option>
+                            <option value="5">5.º año</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-amber-900 mb-2">SECCIÓN</label>
+                        <select id="sel-seccion" onchange="resetListaAlumnas()" class="w-full p-3 border-2 border-amber-200 rounded-xl font-semibold outline-none bg-amber-50/50">
+                            <option value="">Elegir sección</option>
+                            <option value="A">Sección A</option>
+                            <option value="B">Sección B</option>
+                            <option value="C">Sección C</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="cargarEstudiantes()" class="w-full bg-amber-700 hover:bg-amber-800 text-white font-extrabold py-3 px-4 rounded-xl shadow-md mb-4 transition">
+                    🔍 Buscar Mi Nombre
+                </button>
+                <div id="container-nombre" class="hidden fade-in">
+                    <label class="block text-xs font-bold text-amber-900 mb-2">SELECCIONA TU NOMBRE DE LA LISTA</label>
+                    <select id="sel-nombre" class="w-full p-3 border-2 border-amber-300 rounded-xl font-semibold mb-6 bg-white"></select>
+                    <button onclick="iniciarEvaluacion()" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-black py-4 px-4 rounded-xl shadow-lg text-lg transition">
+                        🚀 ¡Estoy lista, iniciar evaluación!
+                    </button>
+                </div>
+                <div id="loading-msg" class="hidden text-center text-amber-800 font-bold mt-4 animate-pulse">⌛ Buscando lista de alumnas...</div>
+            </div>
+            <div class="mt-8 pt-4 border-t border-amber-200 text-center text-sm font-medium text-amber-900">
+                Elaborado por: <span class="font-bold">Frida Margot Pino Alarcón</span>
+            </div>
+        </div>
+
+        <!-- PANTALLA DE EXAMEN -->
+        <div id="screen-game" class="hidden p-6 md:p-8 fade-in">
+            <div class="flex justify-between items-center mb-6 bg-amber-100/80 p-4 rounded-2xl border border-amber-300">
+                <div>
+                    <span class="text-xs font-bold text-amber-700 uppercase block">Alumna</span>
+                    <span id="user-display-name" class="font-black text-amber-950 block text-lg">Estudiante</span>
+                </div>
+                <div class="w-1/2 bg-amber-200 rounded-full h-4 overflow-hidden hidden md:block">
+                    <div id="progress-bar" class="bg-orange-500 h-full w-0 transition-all duration-300"></div>
+                </div>
+                <div class="font-extrabold text-amber-900 text-sm bg-white px-3 py-1.5 rounded-xl border border-amber-300">
+                    Pregunta <span id="current-q-num">1</span> / <span id="total-q-num">0</span>
+                </div>
+            </div>
+
+            <!-- Aquí van las preguntas dinámicas -->
+            <div id="question-card" class="bg-white p-6 md:p-8 rounded-2xl shadow-md border border-amber-200 mb-6"></div>
+
+            <div class="flex justify-between items-center gap-4">
+                <button id="btn-prev" onclick="navegarPregunta(-1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl disabled:opacity-30 transition">← Anterior</button>
+                <button id="btn-next" onclick="navegarPregunta(1)" class="bg-amber-600 hover:bg-amber-700 text-white font-extrabold py-3 px-8 rounded-xl shadow-md transition">Siguiente →</button>
+                <button id="btn-finish" onclick="confirmarFinalizacion()" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3 px-8 rounded-xl shadow-lg transition">✅ Finalizar Evaluación</button>
+            </div>
+        </div>
+
+        <!-- PANTALLA DE RESULTADOS (Mantiene el diseño original y muestra la escala AD, A, B, C) -->
+        <div id="screen-results" class="hidden p-6 md:p-10 text-center fade-in">
+            <div class="inline-block bg-amber-100 text-amber-900 text-xs font-bold px-4 py-1 rounded-full mb-2">
+                ¡Felicitaciones por completar tu evaluación!
+            </div>
+            <h2 class="text-3xl font-black mb-2 text-amber-950">Reporte Final</h2>
+            <p id="result-student-info" class="text-sm font-bold text-amber-800 mb-6"></p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white border-2 border-amber-300 rounded-3xl p-6 shadow-md flex flex-col items-center justify-center">
+                    <p class="text-xs font-bold uppercase mb-1 text-gray-500">Logro Alcanzado</p>
+                    <div id="result-letter" class="text-7xl font-black text-amber-600 my-1">--</div>
+                    <p id="result-level-desc" class="text-sm font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-900 mt-1">--</p>
+                    <!-- Nota en número visible y destacada -->
+                    <p id="result-points" class="text-2xl font-extrabold text-amber-900 mt-3">Nota: 0 / 20</p>
+                </div>
+                <div class="bg-white border-2 border-amber-300 rounded-3xl p-6 shadow-md text-left flex flex-col justify-center">
+                    <div class="text-emerald-700 font-bold mb-3 text-lg">✔ Correctas: <span id="stat-correct">0</span></div>
+                    <div class="text-rose-700 font-bold mb-3 text-lg">❌ Incorrectas: <span id="stat-incorrect">0</span></div>
+                    <div class="text-slate-700 font-bold text-lg">⚪ En Blanco: <span id="stat-blank">0</span></div>
+                </div>
+            </div>
+
+            <!-- Tabla resumen de escala de calificación -->
+            <div class="bg-white/90 border border-amber-200 rounded-2xl p-4 mb-6 text-xs text-left">
+                <p class="font-extrabold text-amber-950 uppercase mb-2 text-center">Escala de Calificación Institucional</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-semibold">
+                    <div class="p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900">
+                        <span class="font-black text-base block">AD (18 – 20)</span>
+                        Logro destacado
+                    </div>
+                    <div class="p-2 rounded-xl bg-blue-50 border border-blue-200 text-blue-900">
+                        <span class="font-black text-base block">A (15 – 17)</span>
+                        Logro esperado / Satisfactorio
+                    </div>
+                    <div class="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
+                        <span class="font-black text-base block">B (11 – 14)</span>
+                        En proceso
+                    </div>
+                    <div class="p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-900">
+                        <span class="font-black text-base block">C (00 – 10)</span>
+                        En inicio / Reprobado
+                    </div>
+                </div>
+            </div>
+
+            <div id="sync-status" class="mb-6 p-4 rounded-xl text-sm font-bold bg-amber-100 border border-amber-300">⌛ Registrando tus resultados...</div>
+            <button onclick="location.reload()" class="bg-amber-800 text-white font-bold py-3 px-8 rounded-xl hover:bg-amber-900 transition">Volver al Inicio</button>
+        </div>
+
+    </div>
+
+    <script>
+        // ENLACE APPS SCRIPT ACTUALIZADO
+        const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycby3ClaFmCwDx8-AjehKgdIbT0fU1sHtmlvxH3iZ5rZ6nMwBhaJv4c9ESLrE4OOXW6fKAw/exec";
+
+        let userIP = "No detectada";
+        fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => { userIP = data.ip; }).catch(()=>{});
+
+        // ALGORITMO FISHER-YATES PARA ALEATORIEDAD REAL (EVITA PLAGIO)
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // NOTIFICACIONES
+        function showNotification(msg) {
+            document.getElementById('notification-msg').textContent = msg;
+            document.getElementById('custom-notification').classList.add('show');
+            setTimeout(() => document.getElementById('custom-notification').classList.remove('show'), 3200);
+        }
+        function hideNotification() { document.getElementById('custom-notification').classList.remove('show'); }
+
+        function resetListaAlumnas() {
+            document.getElementById('container-nombre').classList.add('hidden');
+            document.getElementById('sel-nombre').innerHTML = '';
+        }
+
+        // SISTEMA DE AUDIO INTELIGENTE (Ignora puntuación)
+        function playAudio(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const cleanText = text.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!"']/g, " ").replace(/\s{2,}/g, " ").trim();
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.05;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function stopAudio() {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        }
+
+        // BANCO DE PREGUNTAS: GEOGRAFÍA DEL PERÚ (20 PREGUNTAS = 20 PUNTOS EXACTOS)
+        const originalQuestions = [
+            {
+                id: 1,
+                type: 'mc',
+                points: 1,
+                q: "Según la síntesis global del territorio peruano, ¿cuántos de los 32 climas del mundo alberga el Perú?",
+                options: ["28 climas", "18 climas", "20 climas", "11 climas"],
+                answer: 0
+            },
+            {
+                id: 2,
+                type: 'mc',
+                points: 1,
+                q: "¿Cuál es la frontera internacional más extensa del Perú con 2,822 km de longitud?",
+                options: ["Ecuador", "Colombia", "Brasil", "Bolivia"],
+                answer: 2
+            },
+            {
+                id: 3,
+                type: 'mc',
+                points: 1,
+                q: "¿Cuál es el punto geográfico más occidental del Perú y de toda Sudamérica?",
+                options: [
+                    "Punta Balcones en Talara, Piura",
+                    "Río Putumayo en Güepí, Loreto",
+                    "Punto Concordia en Tacna",
+                    "Confluencia de los ríos Heath y Madre de Dios"
+                ],
+                answer: 0
+            },
+            {
+                id: 4,
+                type: 'fill',
+                points: 1,
+                q: "El punto más alto del relieve peruano es el nevado ________ con 6,768 m.s.n.m., ubicado en la Cordillera Blanca.",
+                accepted: ["Huascarán", "huascaran", "Huascaran", "huascarán"]
+            },
+            {
+                id: 5,
+                type: 'mc',
+                points: 1,
+                q: "¿Qué fenómeno marino explica la altísima productividad biológica del Mar Frío de la Corriente Peruana al elevar nutrientes desde el fondo marino?",
+                options: [
+                    "El fenómeno de afloramiento",
+                    "La subducción tectónica",
+                    "La cuenca endorreica",
+                    "El contraste térmico nocturno"
+                ],
+                answer: 0
+            },
+            {
+                id: 6,
+                type: 'mc',
+                points: 1,
+                q: "¿Cuál es la vertiente hidrográfica que abarca el 75 % del territorio peruano y donde recorre el río Ucayali?",
+                options: [
+                    "Vertiente del Pacífico",
+                    "Vertiente del Amazonas",
+                    "Vertiente del Titicaca",
+                    "Vertiente del Mar de Grau"
+                ],
+                answer: 1
+            },
+            {
+                id: 7,
+                type: 'fill',
+                points: 1,
+                q: "La clasificación científica oficial de las 11 Ecorregiones del Perú fue propuesta por el ecólogo peruano Antonio ________ Egg.",
+                accepted: ["Brack", "brack"]
+            },
+            {
+                id: 8,
+                type: 'mc',
+                points: 1,
+                q: "En la clasificación de las 8 Regiones Naturales de Javier Pulgar Vidal, ¿qué región es conocida como la despensa agrícola de clima templado entre los 2,300 y 3,500 m.s.n.m.?",
+                options: ["Chala", "Quechua", "Puna", "Janca"],
+                answer: 1
+            },
+            {
+                id: 9,
+                type: 'order',
+                points: 1,
+                q: "Ordena cronológicamente la evolución del pensamiento geográfico en la regionalización del Perú, desde la visión más antigua hasta la más reciente:",
+                correctOrder: [
+                    "Visión Española (Costa, Sierra y Selva)",
+                    "Visión Geográfica de Javier Pulgar Vidal (8 Regiones Naturales)",
+                    "Visión Ecológica de Antonio Brack Egg (11 Ecorregiones)"
+                ]
+            },
+            {
+                id: 10,
+                type: 'order',
+                points: 1,
+                q: "Ordena de menor a mayor altitud las siguientes regiones naturales propuestas por Javier Pulgar Vidal:",
+                correctOrder: [
+                    "Chala (0 a 500 m)",
+                    "Yunga (500 a 2,300 m)",
+                    "Quechua (2,300 a 3,500 m)",
+                    "Suni (3,500 a 4,100 m)",
+                    "Janca (más de 4,800 m)"
+                ]
+            },
+            {
+                id: 11,
+                type: 'match',
+                points: 1,
+                q: "Relaciona cada ecorregión con el dominio geográfico al que pertenece:",
+                pairs: [
+                    { left: "Mar Tropical", right: "Dominio Marítimo" },
+                    { left: "Bosque Seco Ecuatorial", right: "Dominio Costero" },
+                    { left: "Páramo", right: "Dominio Andino" },
+                    { left: "Sabana de Palmeras", right: "Dominio Amazónico" }
+                ]
+            },
+            {
+                id: 12,
+                type: 'mc',
+                points: 1,
+                q: "¿En qué ecorregión se desarrollan los bosques de mangle y habitan especies como los langostinos, las conchas negras y el cocodrilo americano?",
+                options: [
+                    "Mar Frío de la Corriente Peruana",
+                    "Mar Tropical",
+                    "Desierto del Pacífico",
+                    "Selva Baja"
+                ],
+                answer: 1
+            },
+            {
+                id: 13,
+                type: 'mc',
+                points: 1,
+                q: "¿Qué especie de fauna en peligro de extinción es característica del Bosque Seco Ecuatorial, junto con árboles como el algarrobo y el ceibo?",
+                options: [
+                    "Pava aliblanca",
+                    "Gallito de las rocas",
+                    "Ciervo de los pantanos",
+                    "Delfín rosado"
+                ],
+                answer: 0
+            },
+            {
+                id: 14,
+                type: 'match',
+                points: 1,
+                q: "Relaciona cada ecorregión andina o amazónica con su fauna representativa:",
+                pairs: [
+                    { left: "Puna y Altos Andes", right: "Vicuña y cóndor andino" },
+                    { left: "Páramo", right: "Tapir de montaña" },
+                    { left: "Selva Alta", right: "Gallito de las rocas" },
+                    { left: "Sabana de Palmeras", right: "Ciervo de los pantanos" }
+                ]
+            },
+            {
+                id: 15,
+                type: 'mc',
+                points: 1,
+                q: "¿Cuál es la ecorregión más lluviosa del Perú, caracterizada por valles longitudinales, pongos y la presencia del árbol de la quina?",
+                options: [
+                    "Selva Alta o Yungas",
+                    "Desierto del Pacífico",
+                    "Serranía Esteparia",
+                    "Bosque Seco Ecuatorial"
+                ],
+                answer: 0
+            },
+            {
+                id: 16,
+                type: 'fill',
+                points: 1,
+                q: "La ecorregión de la Selva ________ ocupa el 62 % del territorio peruano y alberga especies como el jaguar, el paiche y el delfín rosado.",
+                accepted: ["Baja", "baja"]
+            },
+            {
+                id: 17,
+                type: 'match',
+                points: 1,
+                q: "Relaciona cada motor geográfico del clima peruano con el efecto principal que produce:",
+                pairs: [
+                    { left: "Cordillera de los Andes", right: "Frena vientos amazónicos y crea pisos altitudinales" },
+                    { left: "Corriente de Humboldt", right: "Enfría el aire e impide lluvias en la costa centro-sur" },
+                    { left: "Corriente de El Niño", right: "Eleva temperaturas y provoca lluvias en la costa norte" }
+                ]
+            },
+            {
+                id: 18,
+                type: 'mc',
+                points: 1,
+                q: "¿Qué categoría del SINANPE establece protección estricta del ecosistema, como en el Manu, Huascarán y Río Abiseo?",
+                options: [
+                    "Parques Nacionales",
+                    "Reservas Nacionales",
+                    "Santuarios Históricos",
+                    "Lomas Costeras"
+                ],
+                answer: 0
+            },
+            {
+                id: 19,
+                type: 'match',
+                points: 1,
+                q: "Relaciona cada tipo de clima del Perú con su ubicación o rasgo característico:",
+                pairs: [
+                    { left: "Semicálido muy seco", right: "Costa centro y sur con lluvias menores a 150 mm" },
+                    { left: "Cálido muy seco", right: "Costa norte con temperaturas mayores a 24 °C" },
+                    { left: "Climas de montaña", right: "Valles mesoandinos hasta la Puna con clima contraestacional" },
+                    { left: "Cálido húmedo", right: "Llanura amazónica con lluvias mayores a 2,000 mm" }
+                ]
+            },
+            {
+                id: 20,
+                type: 'fill',
+                points: 1,
+                q: "El punto más bajo del relieve terrestre peruano se encuentra en la Depresión de ________ con 34 metros bajo el nivel del mar.",
+                accepted: ["Sechura", "sechura"]
+            }
+        ];
+
+        let questions = []; // Se poblará y desordenará al iniciar
+        let currentQuestionIndex = 0;
+        let studentData = {};
+        let userAnswers = {};
+        let matchSelections = {};
+        let maxScore = 0;
+
+        function cargarEstudiantes() {
+            const grado = document.getElementById('sel-grado').value;
+            const seccion = document.getElementById('sel-seccion').value;
+            
+            if (!grado) return showNotification("Por favor, selecciona tu grado.");
+            if (!seccion || !["A", "B", "C"].includes(seccion)) return showNotification("Por favor, selecciona una sección (A, B o C).");
+            
+            document.getElementById('loading-msg').classList.remove('hidden');
+            fetch(`${GOOGLE_SHEETS_URL}?action=getEstudiantes&grado=${grado}&seccion=${seccion}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('loading-msg').classList.add('hidden');
+                    if (data.status === "success" && data.estudiantes.length > 0) {
+                        const sel = document.getElementById('sel-nombre');
+                        sel.innerHTML = '<option value="">Selecciona tu nombre</option>';
+                        data.estudiantes.forEach(e => sel.innerHTML += `<option value="${e}">${e}</option>`);
+                        document.getElementById('container-nombre').classList.remove('hidden');
+                    } else {
+                        showNotification("No se encontraron alumnas registradas en ese grado y sección.");
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('loading-msg').classList.add('hidden');
+                    showNotification("Error de conexión con la base de datos.");
+                });
+        }
+
+        function iniciarEvaluacion() {
+            const n = document.getElementById('sel-nombre').value;
+            if (!n) return showNotification("Por favor, selecciona tu nombre antes de continuar.");
+            
+            // 1. CLONAR Y MEZCLAR PREGUNTAS CON FISHER-YATES (ORDEN ÚNICO POR ALUMNA)
+            questions = shuffleArray(JSON.parse(JSON.stringify(originalQuestions)));
+            
+            // 2. MEZCLAR ALTERNATIVAS, PARES Y SECUENCIAS INTERNAMENTE
+            questions.forEach(q => {
+                if (q.type === 'mc' || q.type === 'image_mc') {
+                    const correctText = q.options[q.answer];
+                    q.options = shuffleArray(q.options);
+                    q.answer = q.options.indexOf(correctText);
+                } else if (q.type === 'order') {
+                    // Garantizar que el orden inicial aleatorio no coincida con el correcto
+                    let shuffled = shuffleArray(q.correctOrder);
+                    if (shuffled.length > 1 && shuffled.every((v, i) => v === q.correctOrder[i])) {
+                        [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+                    }
+                    userAnswers[q.id] = shuffled;
+                } else if (q.type === 'match') {
+                    matchSelections[q.id] = {
+                        lefts: shuffleArray(q.pairs.map(p => p.left)),
+                        rights: shuffleArray(q.pairs.map(p => p.right)),
+                        pairs: {},
+                        selL: null
+                    };
+                }
+            });
+
+            maxScore = questions.reduce((acc, q) => acc + q.points, 0);
+            document.getElementById('total-q-num').textContent = questions.length;
+
+            studentData = { 
+                grado: document.getElementById('sel-grado').value, 
+                seccion: document.getElementById('sel-seccion').value, 
+                nombre: n 
+            };
+            
+            document.getElementById('user-display-name').textContent = `${n} (${studentData.grado}.º "${studentData.seccion}")`;
+            document.getElementById('screen-register').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            
+            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') Tone.start();
+            
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = questions[currentQuestionIndex];
+            document.getElementById('current-q-num').textContent = currentQuestionIndex + 1;
+            document.getElementById('progress-bar').style.width = `${((currentQuestionIndex + 1)/questions.length)*100}%`;
+
+            document.getElementById('btn-prev').disabled = (currentQuestionIndex === 0);
+            if (currentQuestionIndex === questions.length - 1) {
+                document.getElementById('btn-next').classList.add('hidden');
+                document.getElementById('btn-finish').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-next').classList.remove('hidden');
+                document.getElementById('btn-finish').classList.add('hidden');
+            }
+
+            let html = `
+                <div class="mb-4 flex justify-between items-center">
+                    <span class="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full">Valor: ${q.points} Pt${q.points > 1 ? 's' : ''}</span>
+                    <span class="text-xs text-gray-400 font-semibold">Orden aleatorio activo</span>
+                </div>
+                <div class="flex items-start justify-between gap-4 mb-6">
+                    <h3 class="text-lg md:text-xl font-black text-amber-950 flex-1">${q.q}</h3>
+                    <button onclick="playAudio('${q.q.replace(/'/g, "\\'")}')" class="flex-shrink-0 bg-orange-200 hover:bg-orange-300 text-orange-900 p-3 rounded-full transition shadow-sm" title="Escuchar pregunta">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                    </button>
+                </div>
+            `;
+
+            // RENDER: OPCIÓN MÚLTIPLE (NORMAL O CON IMAGEN)
+            if (q.type === 'mc' || q.type === 'image_mc') {
+                if (q.type === 'image_mc' && q.imageUrl) {
+                    html += `<img src="${q.imageUrl}" class="w-full max-h-64 object-contain rounded-xl mb-4 border-2 border-amber-200">`;
+                }
+                html += `<div class="space-y-3">`;
+                q.options.forEach((opt, idx) => {
+                    const isSel = (userAnswers[q.id] === idx);
+                    html += `<button onclick="selectMC(${q.id}, ${idx})" class="w-full text-left p-4 rounded-xl border-2 font-semibold transition flex items-center justify-between ${isSel ? 'border-orange-600 bg-orange-100 text-orange-950' : 'border-amber-200 bg-amber-50 hover:bg-amber-100'}">
+                        <span>${String.fromCharCode(65 + idx)}. ${opt}</span>
+                        <div class="w-5 h-5 rounded-full border-2 ${isSel ? 'border-orange-600 bg-orange-600' : 'border-amber-400'}"></div>
+                    </button>`;
+                });
+                html += `</div>`;
+            }
+            // RENDER: ORDENAR SECUENCIAS
+            else if (q.type === 'order') {
+                const currentArr = userAnswers[q.id];
+                html += `<p class="text-xs font-bold text-amber-800 uppercase mb-4">Usa los botones ⬆️ y ⬇️ para ordenar correctamente:</p>
+                        <div class="space-y-2">`;
+                currentArr.forEach((item, idx) => {
+                    html += `
+                    <div class="order-item bg-amber-50 border-2 border-amber-300 rounded-xl p-3 flex justify-between items-center font-semibold">
+                        <span class="flex-1 mr-4">${idx + 1}. ${item}</span>
+                        <div class="flex flex-col gap-1">
+                            <button onclick="moveOrder(${q.id}, ${idx}, -1)" class="bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded text-lg" ${idx === 0 ? 'disabled opacity-30' : ''}>⬆️</button>
+                            <button onclick="moveOrder(${q.id}, ${idx}, 1)" class="bg-amber-200 hover:bg-amber-300 px-3 py-1 rounded text-lg" ${idx === currentArr.length - 1 ? 'disabled opacity-30' : ''}>⬇️</button>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            // RENDER: COMPLETAR ESPACIOS
+            else if (q.type === 'fill') {
+                html += `<input type="text" value="${userAnswers[q.id] || ''}" oninput="userAnswers[${q.id}] = this.value" class="w-full p-4 border-2 border-amber-300 rounded-xl text-lg font-bold bg-amber-50 focus:border-orange-500 focus:outline-none" placeholder="Escribe aquí tu respuesta..."/>`;
+            }
+            // RENDER: RELACIONAR TÉRMINOS
+            else if (q.type === 'match') {
+                const st = matchSelections[q.id];
+                html += `<div class="flex justify-between items-center mb-3">
+                            <p class="text-xs font-bold text-amber-800 uppercase">Haz clic en un elemento de la izquierda y luego en su pareja de la derecha:</p>
+                            <button onclick="resetMatch(${q.id})" class="text-xs bg-amber-200 hover:bg-amber-300 text-amber-950 font-bold px-3 py-1 rounded-lg">Reiniciar pares</button>
+                         </div>
+                         <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">${st.lefts.map(i => `<div onclick="selMatchL(${q.id}, '${i.replace(/'/g, "\\'")}')" class="p-3 border-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${st.pairs[i]?'opacity-50 bg-gray-100 border-green-500':(st.selL===i?'border-orange-500 bg-orange-100':'border-amber-300 bg-amber-50 hover:bg-amber-100')}">${i} ${st.pairs[i]?'✓':''}</div>`).join('')}</div>
+                            <div class="space-y-2">${st.rights.map(i => `<div onclick="selMatchR(${q.id}, '${i.replace(/'/g, "\\'")}')" class="p-3 border-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${Object.values(st.pairs).includes(i)?'opacity-50 bg-gray-100 border-green-500':'border-amber-300 bg-amber-50 hover:bg-amber-100'}">${i}</div>`).join('')}</div>
+                         </div>`;
+            }
+
+            document.getElementById('question-card').innerHTML = html;
+            playAudio(q.q);
+        }
+
+        // ACCIONES DE INTERACCIÓN
+        function selectMC(qId, idx) { userAnswers[qId] = idx; renderQuestion(); }
+        
+        function moveOrder(qId, idx, dir) {
+            let arr = userAnswers[qId];
+            if (dir === -1 && idx > 0) { [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]]; }
+            if (dir === 1 && idx < arr.length-1) { [arr[idx+1], arr[idx]] = [arr[idx], arr[idx+1]]; }
+            renderQuestion();
+        }
+
+        function selMatchL(qId, i) { if(!matchSelections[qId].pairs[i]) { matchSelections[qId].selL = i; renderQuestion(); } }
+        function selMatchR(qId, i) {
+            const st = matchSelections[qId];
+            if(st.selL && !Object.values(st.pairs).includes(i)) { 
+                st.pairs[st.selL] = i; 
+                st.selL = null; 
+                userAnswers[qId] = {...st.pairs}; 
+                renderQuestion(); 
+            }
+        }
+        function resetMatch(qId) {
+            matchSelections[qId].pairs = {};
+            matchSelections[qId].selL = null;
+            delete userAnswers[qId];
+            renderQuestion();
+        }
+        
+        function navegarPregunta(dir) { 
+            stopAudio();
+            currentQuestionIndex += dir; 
+            renderQuestion(); 
+        }
+
+        // FINALIZAR Y CALCULAR NOTAS SEGÚN ESCALA SOLICITADA
+        function confirmarFinalizacion() {
+            stopAudio();
+            
+            let pts = 0, corr = 0, inco = 0, blan = 0;
+            questions.forEach(q => {
+                let ans = userAnswers[q.id];
+                if (ans === undefined || ans === '' || (q.type === 'match' && Object.keys(ans).length === 0)) { 
+                    blan++; 
+                }
+                else if (q.type === 'mc' || q.type === 'image_mc') { 
+                    ans === q.answer ? (corr++, pts += q.points) : inco++; 
+                }
+                else if (q.type === 'fill') { 
+                    q.accepted.some(a => a.toLowerCase() === ans.trim().toLowerCase()) ? (corr++, pts += q.points) : inco++; 
+                }
+                else if (q.type === 'order') { 
+                    let isOK = q.correctOrder.every((v, i) => v === ans[i]); 
+                    isOK ? (corr++, pts += q.points) : inco++; 
+                }
+                else if (q.type === 'match') {
+                    let c = 0; 
+                    q.pairs.forEach(p => { if (ans && ans[p.left] === p.right) c++; });
+                    if (c === q.pairs.length) {
+                        corr++;
+                        pts += q.points;
+                    } else if (c > 0) {
+                        inco++;
+                        pts += (c / q.pairs.length) * q.points;
+                    } else {
+                        inco++;
+                    }
+                }
+            });
+
+            // 1. Convertir los puntos base a escala vigesimal (00 a 20)
+            const notaVigesimal = Math.round((pts / maxScore) * 20);
+            const notaFormateada = notaVigesimal < 10 ? `0${notaVigesimal}` : `${notaVigesimal}`;
+            
+            // 2. Asignar calificación literal y descripción exacta según parámetros:
+            // AD (Logro destacado): 18 – 20
+            // A (Logro esperado / Satisfactorio): 15 – 17
+            // B (En proceso): 11 – 14
+            // C (En inicio / Reprobado): 00 – 10
+            let letR = 'C';
+            let descR = 'En inicio / Reprobado';
+            let colorClass = "text-7xl font-black text-red-600 my-1";
+            let badgeClass = "text-sm font-extrabold px-4 py-1 rounded-full bg-red-100 text-red-800 mt-1";
+
+            if (notaVigesimal >= 18) {
+                letR = 'AD';
+                descR = 'Logro destacado';
+                colorClass = "text-7xl font-black text-emerald-600 my-1";
+                badgeClass = "text-sm font-extrabold px-4 py-1 rounded-full bg-emerald-100 text-emerald-800 mt-1";
+            } else if (notaVigesimal >= 15) {
+                letR = 'A';
+                descR = 'Logro esperado / Satisfactorio';
+                colorClass = "text-7xl font-black text-blue-600 my-1";
+                badgeClass = "text-sm font-extrabold px-4 py-1 rounded-full bg-blue-100 text-blue-800 mt-1";
+            } else if (notaVigesimal >= 11) {
+                letR = 'B';
+                descR = 'En proceso';
+                colorClass = "text-7xl font-black text-amber-500 my-1";
+                badgeClass = "text-sm font-extrabold px-4 py-1 rounded-full bg-amber-100 text-amber-900 mt-1";
+            }
+
+            // Mostrar resultados en el reporte final
+            document.getElementById('result-student-info').textContent = `Alumna: ${studentData.nombre} — ${studentData.grado}.º año, Sección "${studentData.seccion}"`;
+            
+            const letterEl = document.getElementById('result-letter');
+            letterEl.textContent = letR;
+            letterEl.className = colorClass;
+
+            const descEl = document.getElementById('result-level-desc');
+            descEl.textContent = descR;
+            descEl.className = badgeClass;
+            
+            document.getElementById('result-points').textContent = `Nota: ${notaFormateada} / 20`;
+            
+            document.getElementById('stat-correct').textContent = corr;
+            document.getElementById('stat-incorrect').textContent = inco;
+            document.getElementById('stat-blank').textContent = blan;
+            
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-results').classList.remove('hidden');
+
+            // Enviar datos a Google Sheets
+            fetch(GOOGLE_SHEETS_URL, { 
+                method: 'POST', 
+                mode: 'no-cors', 
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ 
+                    ...studentData, 
+                    correctas: corr, 
+                    incorrectas: inco, 
+                    enBlanco: blan, 
+                    puntaje: notaVigesimal, 
+                    letra: letR, 
+                    descripcion: descR,
+                    ip: userIP 
+                })
+            }).then(() => { 
+                document.getElementById('sync-status').innerHTML = "✅ ¡Listo! Tu calificación ha sido registrada correctamente."; 
+            }).catch(() => {
+                document.getElementById('sync-status').innerHTML = "⚠️ Evaluación finalizada (verifica tu conexión con el servidor).";
+            });
+        }
+    </script>
+</body>
+</html>
